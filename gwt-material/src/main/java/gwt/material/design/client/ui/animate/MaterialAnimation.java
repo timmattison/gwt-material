@@ -7,9 +7,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -38,7 +38,8 @@ import static gwt.material.design.client.js.JsMaterialElement.$;
 public class MaterialAnimation implements Animation {
 
     private Widget widget;
-    private Transition transition = Transition.BOUNCE;
+    private Transition transitionNullable = Transition.BOUNCE;
+    private String transitionCssName = Transition.BOUNCE.getCssName();
     private int delay = 0;
     private int duration = 800;
     private boolean infinite;
@@ -116,23 +117,25 @@ public class MaterialAnimation implements Animation {
         element.css("animation-duration", duration + "ms");
         element.css("-webkit-animation-duration", duration + "ms");
 
-        switch (transition) {
-            case SHOW_STAGGERED_LIST:
-                if (widget instanceof UnorderedList) {
-                    UnorderedList ul = (UnorderedList) widget;
+        if (transitionNullable != null) {
+            switch (transitionNullable) {
+                case SHOW_STAGGERED_LIST:
+                    if (widget instanceof UnorderedList) {
+                        UnorderedList ul = (UnorderedList) widget;
 
-                    for (Widget li : ul) {
-                        if (li instanceof ListItem) {
-                            li.getElement().getStyle().setOpacity(0);
+                        for (Widget li : ul) {
+                            if (li instanceof ListItem) {
+                                li.getElement().getStyle().setOpacity(0);
+                            }
                         }
                     }
-                }
-                break;
-            case SHOW_GRID:
-                widget.getElement().getStyle().setOpacity(0);
-                break;
-            default:
-                break;
+                    break;
+                case SHOW_GRID:
+                    widget.getElement().getStyle().setOpacity(0);
+                    break;
+                default:
+                    break;
+            }
         }
 
         startTimer = new Timer() {
@@ -143,47 +146,29 @@ public class MaterialAnimation implements Animation {
                     startCallback.call();
                 }
 
-                switch (transition) {
-                    case SHOW_STAGGERED_LIST:
-                        JsMaterialElement.showStaggeredList(element);
-                        break;
-                    case FADE_IN_IMAGE:
-                        JsMaterialElement.fadeInImage(element);
-                        break;
-                    case SHOW_GRID:
-                        widget.addStyleName(CssName.DISPLAY_ANIMATION);
-                        JsMaterialElement.showGrid(element);
-                        break;
-                    case CLOSE_GRID:
-                        widget.addStyleName(CssName.DISPLAY_ANIMATION);
-                        JsMaterialElement.closeGrid(element);
-                        break;
-                    default:
-                        // For core animation components
-                        if (infinite) {
-                            widget.addStyleName(CssName.INFINITE);
-                        }
-                        widget.addStyleName("animated " + transition.getCssName());
-
-                        // Only start the end timer if its not already active.
-                        if (endTimer == null) {
-                            endTimer = new Timer() {
-                                @Override
-                                public void run() {
-                                    if (callback != null) {
-                                        callback.call();
-                                    }
-                                    if (!infinite) {
-                                        $(element).removeClass("animated " + transition.getCssName());
-                                    }
-
-                                    endTimer = null;
-                                    startTimer = null;
-                                }
-                            };
-                            endTimer.schedule(duration);
-                        }
-                        break;
+                if (transitionNullable != null) {
+                    switch (transitionNullable) {
+                        case SHOW_STAGGERED_LIST:
+                            JsMaterialElement.showStaggeredList(element);
+                            break;
+                        case FADE_IN_IMAGE:
+                            JsMaterialElement.fadeInImage(element);
+                            break;
+                        case SHOW_GRID:
+                            widget.addStyleName(CssName.DISPLAY_ANIMATION);
+                            JsMaterialElement.showGrid(element);
+                            break;
+                        case CLOSE_GRID:
+                            widget.addStyleName(CssName.DISPLAY_ANIMATION);
+                            JsMaterialElement.closeGrid(element);
+                            break;
+                        default:
+                            // For core animation components
+                            defaultAnimationHandler(widget, callback, element);
+                            break;
+                    }
+                } else {
+                    defaultAnimationHandler(widget, callback, element);
                 }
             }
         };
@@ -196,13 +181,39 @@ public class MaterialAnimation implements Animation {
         widget.removeStyleName(CssName.MATERIALIZE_CSS);
     }
 
+    private void defaultAnimationHandler(Widget widget, Functions.Func callback, JsMaterialElement element) {
+        if (infinite) {
+            widget.addStyleName(CssName.INFINITE);
+        }
+        widget.addStyleName("animated " + transitionCssName);
+
+        // Only start the end timer if its not already active.
+        if (endTimer == null) {
+            endTimer = new Timer() {
+                @Override
+                public void run() {
+                    if (callback != null) {
+                        callback.call();
+                    }
+                    if (!infinite) {
+                        $(element).removeClass("animated " + transitionCssName);
+                    }
+
+                    endTimer = null;
+                    startTimer = null;
+                }
+            };
+            endTimer.schedule(duration);
+        }
+    }
+
     /**
      * Stop an animation.
      */
     public void stopAnimation() {
         if (widget != null) {
             widget.removeStyleName("animated");
-            widget.removeStyleName(transition.getCssName());
+            widget.removeStyleName(transitionCssName);
             widget.removeStyleName(CssName.INFINITE);
         }
     }
@@ -238,11 +249,17 @@ public class MaterialAnimation implements Animation {
     }
 
     public Transition getTransition() {
-        return transition;
+        return transitionNullable;
     }
 
     public void setTransition(Transition transition) {
-        this.transition = transition;
+        this.transitionNullable = transition;
+        this.transitionCssName = transitionNullable.getCssName();
+    }
+
+    public void setTransitionCssName(String transitionCssName) {
+        this.transitionNullable = null;
+        this.transitionCssName = transitionCssName;
     }
 
     public boolean isInfinite() {
@@ -277,10 +294,10 @@ public class MaterialAnimation implements Animation {
     @Override
     public String toString() {
         return "MaterialAnimation{" +
-            "transition=" + transition +
-            ", delay=" + delay +
-            ", duration=" + duration +
-            ", infinite=" + infinite +
-            '}';
+                "transitionNullable=" + transitionNullable +
+                ", delay=" + delay +
+                ", duration=" + duration +
+                ", infinite=" + infinite +
+                '}';
     }
 }
